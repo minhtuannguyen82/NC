@@ -1,0 +1,82 @@
+---
+- hosts: localhost
+  vars_files:
+      - secret/aws_credentials.yml
+      - variable/variable.yml
+  tasks: 
+      - name: "Creating Security group for webserver"
+        ec2_group:
+             name: "webserver_sg"
+             description: "sg created using security group for webserver"
+             region: "ap-southeast-2"
+             vpc_id: "vpc-0d4400de1a483813f"
+             rules:
+                 - proto: tcp
+                   from_port: 22
+                   to_port: 22
+                   cidr_ip: 0.0.0.0/0
+                 - proto: tcp
+                   from_port: '{{ wb_service_port }}'
+                   to_port: "{{ wb_service_port }}"
+                   cidr_ip: 0.0.0.0/0
+             rules_egress:
+                 - proto: all
+                   cidr_ip: 0.0.0.0/0
+             aws_access_key: "{{ aws_access_key }}"
+             aws_secret_key: "{{ aws_secret_key }}"
+
+      - name: "Creating Security group for Load Balancer"
+        ec2_group:
+             name: "loadbalancer_sg"
+             description: "sg created using security group for LoadBalancer"
+             region: "ap-southeast-2"
+             vpc_id: "vpc-0d4400de1a483813f"
+             rules:
+                 - proto: tcp
+                   from_port: 22
+                   to_port: 22
+                   cidr_ip: 0.0.0.0/0
+                 - proto: tcp
+                   from_port: '{{ lb_service_port }}'
+                   to_port: '{{ lb_service_port }}'
+                   cidr_ip: 0.0.0.0/0
+             rules_egress:
+                 - proto: all
+                   cidr_ip: 0.0.0.0/0 
+             aws_access_key: "{{ aws_access_key }}"
+             aws_secret_key: "{{ aws_secret_key }}"         
+      
+      - name: "Provisioning EC2 instances for webserver" 
+        ec2:
+            key_name: "myrdr66"
+            image: "ami-0d2fb06f3c1484132"
+            instance_type: "t2.micro"
+            region: "ap-southeast-2"
+            assign_public_ip: yes
+            vpc_subnet_id: "subnet-0ea5bf8c5681bc3da"
+            wait: yes
+            group: "webserver_sg"
+            instance_tags:
+                   "name" : "webserver"
+            count: 2
+            aws_access_key: "{{ aws_access_key }}"
+            aws_secret_key: "{{ aws_secret_key }}"
+            
+      - name: "Provisioning EC2 instances for LoadBalancer"
+        ec2:
+            key_name: "myrdr66"
+            image: "ami-0d2fb06f3c1484132"
+            instance_type: "t2.micro"
+            region: "ap-southeast-2"
+            assign_public_ip: yes
+            vpc_subnet_id: "subnet-0ea5bf8c5681bc3da"
+            wait: yes
+            group: "loadbalancer_sg"
+            instance_tags:
+                   "name" : "loadbalancer"
+            count: 1
+            aws_access_key: "{{ aws_access_key }}"
+            aws_secret_key: "{{ aws_secret_key }}"
+            
+      - name: "refresh invntory"
+        meta: refresh_inventory
